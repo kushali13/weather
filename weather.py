@@ -2,21 +2,17 @@ from typing import Any
 import httpx
 from mcp.server.fastmcp import FastMCP
 
-# Initialize FastMCP server
 mcp = FastMCP("weather")
 
-# Constants
 OPENWEATHER_API_BASE = "https://api.openweathermap.org/data/2.5"
 OPENWEATHER_API_KEY = "162689b8f4e4ebb26d831abc46160b0f"
 USER_AGENT = "weather-app/1.0"
 
 async def make_openweather_request(url: str, params: dict[str, Any]) -> dict[str, Any] | None:
-    """Make a request to the OpenWeatherMap API with proper error handling."""
     headers = {
         "User-Agent": USER_AGENT
     }
     
-    # Add API key to parameters
     params["appid"] = OPENWEATHER_API_KEY
     
     async with httpx.AsyncClient() as client:
@@ -29,7 +25,6 @@ async def make_openweather_request(url: str, params: dict[str, Any]) -> dict[str
             return None
 
 def kelvin_to_celsius(kelvin: float) -> float:
-    """Convert Kelvin to Celsius."""
     return kelvin - 273.15
 
 def kelvin_to_fahrenheit(kelvin: float) -> float:
@@ -43,10 +38,7 @@ async def get_alerts(state: str) -> str:
     Args:
         state: Two-letter US state code (e.g. CA, NY)
     """
-    # OpenWeatherMap doesn't have state-specific alerts like NWS
-    # We'll get alerts for major cities in the state instead
-    
-    # State to major city mapping (sample - you can expand this)
+   
     state_cities = {
         "CA": "San Francisco",
         "NY": "New York",
@@ -64,7 +56,6 @@ async def get_alerts(state: str) -> str:
     if not city:
         return f"Alert data not available for state: {state}. Supported states: {', '.join(state_cities.keys())}"
     
-    # Get current weather to check for severe conditions
     url = f"{OPENWEATHER_API_BASE}/weather"
     params = {
         "q": f"{city},{state},US",
@@ -76,14 +67,12 @@ async def get_alerts(state: str) -> str:
     if not data:
         return "Unable to fetch weather alert data."
     
-    # Check for severe weather conditions
     weather = data.get("weather", [{}])[0]
     main_weather = weather.get("main", "").lower()
     description = weather.get("description", "")
     
     alerts = []
     
-    # Check for severe conditions
     if "thunderstorm" in main_weather:
         alerts.append(f"⚡ Thunderstorm Alert for {city}, {state}: {description.title()}")
     elif "snow" in main_weather or "blizzard" in description:
@@ -91,7 +80,6 @@ async def get_alerts(state: str) -> str:
     elif "rain" in main_weather and "heavy" in description:
         alerts.append(f"🌧️ Heavy Rain Alert for {city}, {state}: {description.title()}")
     
-    # Check temperature extremes
     temp = data.get("main", {}).get("temp", 0)
     if temp > 35:  # > 95°F
         alerts.append(f"🔥 Heat Warning for {city}, {state}: Temperature {temp:.1f}°C ({temp*9/5+32:.1f}°F)")
@@ -111,7 +99,6 @@ async def get_forecast(latitude: float, longitude: float) -> str:
         latitude: Latitude of the location
         longitude: Longitude of the location
     """
-    # Get 5-day forecast
     url = f"{OPENWEATHER_API_BASE}/forecast"
     params = {
         "lat": latitude,
@@ -124,13 +111,11 @@ async def get_forecast(latitude: float, longitude: float) -> str:
     if not data or "list" not in data:
         return "Unable to fetch forecast data for this location."
     
-    # Get current weather as well
     current_url = f"{OPENWEATHER_API_BASE}/weather"
     current_data = await make_openweather_request(current_url, params)
     
     forecasts = []
     
-    # Add current weather
     if current_data:
         current_temp = current_data["main"]["temp"]
         current_feels_like = current_data["main"]["feels_like"]
@@ -148,7 +133,6 @@ Wind: {wind.get('speed', 0)} m/s
 Conditions: {current_weather['description'].title()}"""
         forecasts.append(current_forecast)
     
-    # Process forecast data (next 24 hours, every 3 hours)
     forecast_list = data["list"][:8]  # Next 24 hours (8 * 3-hour intervals)
     
     for i, period in enumerate(forecast_list):
@@ -159,7 +143,6 @@ Conditions: {current_weather['description'].title()}"""
         weather_desc = period["weather"][0]["description"]
         wind_speed = period["wind"]["speed"]
         
-        # Calculate hours from now
         hours_ahead = (i + 1) * 3
         
         forecast = f"""In {hours_ahead} hours ({dt_txt}):
@@ -191,7 +174,6 @@ async def get_weather_by_city(city: str, country_code: str = "US") -> str:
     if not data:
         return f"Unable to fetch weather data for {city}, {country_code}."
     
-    # Extract weather information
     main = data["main"]
     weather = data["weather"][0]
     wind = data.get("wind", {})
